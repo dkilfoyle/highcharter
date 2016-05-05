@@ -85,8 +85,8 @@ hchart.ts <- function(object, ...) {
 hchart.forecast <- function(object, fillOpacity = 0.3, ...){
   
   hc <- highchart() %>% 
-    hc_add_serie_ts(object$x, name = "Series", zIndex = 3, ...) %>% 
-    hc_add_serie_ts(object$mean, name = object$method,  zIndex = 2, ...)
+    hc_add_series_ts(object$x, name = "Series", zIndex = 3, ...) %>% 
+    hc_add_series_ts(object$mean, name = object$method,  zIndex = 2, ...)
   
   # time, names (forecast)
   tmf <- datetime_to_timestamp(zoo::as.Date(time(object$mean)))
@@ -185,18 +185,32 @@ hchart.stl <- function(object, ..., widths = c(2, 1, 1, 1), sep = 0.01) {
               offset = 0, lineWidth = 2,
               showFirstLabel = FALSE, showLastLabel = FALSE)
   
-  highchart() %>% 
-    hc_tooltip(shared = TRUE) %>% 
-    hc_yAxis(
+  hc <- highchart() %>% 
+    hc_tooltip(shared = TRUE) 
+  
+  hc <- hc %>% 
+    hc_yAxis_multiples(
       list.merge(yxs, list(height = pp[1], top = "0%")),
       list.merge(yxs, list(height = pp[3], top = cspp[2], opposite = TRUE)),
       list.merge(yxs, list(height = pp[5], top = cspp[4])),
       list.merge(yxs, list(height = pp[7], top = cspp[6], opposite = TRUE))
-    ) %>% 
-    hc_add_serie_ts(tss[, 1], yAxis = 0, name = "data") %>% 
-    hc_add_serie_ts(tss[, 2], yAxis = 1, name = "seasonal") %>% 
-    hc_add_serie_ts(tss[, 3], yAxis = 2, name = "trend") %>% 
-    hc_add_serie_ts(tss[, 4], yAxis = 3, name = "remainder")
+    )
+  
+  # hc$x$hc_opts$yAxis <- 
+  #   list(
+  #     list.merge(yxs, list(height = pp[1], top = "0%")),
+  #     list.merge(yxs, list(height = pp[3], top = cspp[2], opposite = TRUE)),
+  #     list.merge(yxs, list(height = pp[5], top = cspp[4])),
+  #     list.merge(yxs, list(height = pp[7], top = cspp[6], opposite = TRUE))
+  #   ) 
+  
+  hc <- hc %>% 
+    hc_add_series_ts(tss[, 1], yAxis = 0, name = "data") %>% 
+    hc_add_series_ts(tss[, 2], yAxis = 1, name = "seasonal") %>% 
+    hc_add_series_ts(tss[, 3], yAxis = 2, name = "trend") %>% 
+    hc_add_series_ts(tss[, 4], yAxis = 3, name = "remainder")
+  
+  hc
   
 }
 
@@ -343,7 +357,7 @@ hchart.igraph <- function(object, ..., layout = layout_nicely, digits = 2) {
     )
   
   hc <- hc %>% 
-    hc_add_serie(data = list.parse3(dfv),
+    hc_add_series(data = list.parse3(dfv),
                  type = type, name = "nodes", zIndex = 3, 
                  tooltip = list(
                    headerFormat = as.character(tags$small("{point.key}")),
@@ -352,7 +366,7 @@ hchart.igraph <- function(object, ..., layout = layout_nicely, digits = 2) {
   
   if (!is.null(dfv[["label"]])) {
     hc <- hc %>% 
-      hc_add_serie(data = list.parse3(dfv %>% select_(.dots = c("x", "y", "label"))),
+      hc_add_series(data = list.parse3(dfv %>% select_(.dots = c("x", "y", "label"))),
                    type = "scatter", name = "labels", zIndex = 4,
                    marker = list(radius = 0), enableMouseTracking = FALSE,
                    dataLabels = list(enabled = TRUE, format = "{point.label}"))
@@ -433,15 +447,15 @@ hchart.dendrogram <- function(object, ...) {
 # hchart.seas <- function(object, ..., outliers = TRUE, trend = FALSE) {
 # 
 #   hc <- highchart() %>%
-#     hc_add_serie_ts(seasonal::original(object),
+#     hc_add_series_ts(seasonal::original(object),
 #                     name = "original",
 #                     zIndex = 3, id = "original") %>%
-#     hc_add_serie_ts(seasonal::final(object),
+#     hc_add_series_ts(seasonal::final(object),
 #                     name = "adjusted",
 #                     zIndex = 2, id = "adjusted")
 # 
 #   if (trend) {
-#     hc <- hc %>% hc_add_serie_ts(seasonal::trend(object), name = "trend", zIndex = 1)
+#     hc <- hc %>% hc_add_series_ts(seasonal::trend(object), name = "trend", zIndex = 1)
 #   }
 # 
 #   if (outliers) {

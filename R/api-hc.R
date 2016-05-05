@@ -105,6 +105,11 @@ hc_chart <- function(hc, ...) {
 #' @export
 hc_colors <- function(hc, colors) {
   
+  assertthat::assert_that(is.vector(colors))
+  
+  if(length(colors) == 1)
+    colors <- list(colors)
+
   hc$x$hc_opts$colors <- colors
   
   hc
@@ -155,6 +160,15 @@ hc_yAxis  <- function(hc, ...) {
   
   .hc_opt(hc, "yAxis", ...)
   
+}
+
+#' @rdname hc_xAxis
+#' @export
+hc_yAxis_multiples <- function(hc, ...) {
+  
+  hc$x$hc_opts$yAxis <- list(...)
+  
+  hc
 }
 
 #' Adding title and subtitle options to highchart objects

@@ -27,6 +27,63 @@ hc_add_series_list <- function(hc, lst) {
   
 }
 
+#' Shorcut for add data series where data is a dataframe
+#' 
+#' Automatically parsed de data frame (to a list) so you can use the 
+#' default parameters of highcharts such as \code{x}, \code{y},
+#' \code{z}, \code{color}, \code{name}, \code{low}, \code{high} for 
+#' each series \url{http://api.highcharts.com/highcharts#series<bubble>.data}.
+#' 
+#' @param hc A \code{highchart} \code{htmlwidget} object.
+#' @param data A data frame usually with columns: \code{x}, \code{y},
+#'    \code{z}, \code{color}, \code{name}, \code{low}, \code{high}.
+#'    \url{http://api.highcharts.com/highcharts#series<bubble>.data}
+#' @param ... Aditional shared arguments for the data series 
+#'   (\url{http://api.highcharts.com/highcharts#series}).
+#' 
+#' @examples 
+#' 
+#' require("dplyr")
+#' n <- 100
+#' df <- data_frame(
+#'   x = rnorm(n),
+#'   y = x * 2 + rnorm(n),
+#'   z =  x^2,
+#'   color = colorize_vector(x)
+#'   )
+#'   
+#' highchart() %>% 
+#'   hc_add_series_df(data = df, type = "bubble")
+#'
+#' 
+#' m <- 100
+#' s <- cumsum(rnorm(m))
+#' e <- 2 + rbeta(m, 2, 2)
+#' 
+#' df2 <- data_frame(
+#'   x = seq(m),
+#'   low = s - e,
+#'   high = s + e,
+#'   name = paste("I'm point #%s", x),
+#'   color = colorize_vector(high, "B")
+#' )
+#' 
+#' highchart() %>%
+#'   hc_tooltip(valueDecimals = 2) %>% 
+#'   hc_add_series_df(data = df2, name = "I'm a columnrage series",
+#'                    type = "columnrange", showInLegend = FALSE)
+#' 
+#' @export
+hc_add_series_df <- function(hc, data, ...) {
+  
+  assertthat::assert_that(.is_highchart(hc), is.data.frame(data))
+  
+  hc <- hc %>%
+    hc_add_series(data = list.parse3(data), ...)
+  
+  hc
+}
+
 
 #' Shorcut for create scatter plots
 #'
@@ -56,11 +113,16 @@ hc_add_series_list <- function(hc, lst) {
 #' hc_add_series_scatter(hc, mtcars$wt, mtcars$mpg, mtcars$drat, mtcars$qsec)
 #' hc_add_series_scatter(hc, mtcars$wt, mtcars$mpg, mtcars$drat, mtcars$qsec, rownames(mtcars))
 #' 
+#' # Add named attributes to data (attributes length needs to match number of rows)
+#' hc_add_series_scatter(hc, mtcars$wt, mtcars$mpg, mtcars$drat, mtcars$qsec,
+#'                       name = rownames(mtcars), gear = mtcars$gear) %>%
+#'   hc_tooltip(pointFormat = "<b>{point.name}</b><br/>Gear: {point.gear}")
+#' 
 #' @importFrom dplyr mutate group_by do select data_frame
 #' 
 #' @export 
 hc_add_series_scatter <- function(hc, x, y, z = NULL, color = NULL, label = NULL,
-                                 showInLegend = FALSE, viridis.option = "D", ...) {
+                                  showInLegend = FALSE, viridis.option = "D", ...) {
   
   assertthat::assert_that(.is_highchart(hc), length(x) == length(y),
                           is.numeric(x), is.numeric(y))
@@ -88,6 +150,20 @@ hc_add_series_scatter <- function(hc, x, y, z = NULL, color = NULL, label = NULL
     df <- df %>% mutate(label = label)
   }
   
+  # Add arguments to data points if they match the length of the data
+  args <- list(...)
+  for (i in seq_along(args)) {
+    if (length(x) == length(args[[i]])) {
+      attr <- list(args[i])
+      names(attr) <- names(args)[i]
+      df <- cbind(df, attr)
+      # Used argument is set to zero length
+      args[[i]] <- character(0)
+    }
+  }
+  # Remove already used arguments
+  args <- Filter(length, args)
+  
   ds <- list.parse3(df)
   
   type <- ifelse(!is.null(z), "bubble", "scatter")
@@ -98,11 +174,12 @@ hc_add_series_scatter <- function(hc, x, y, z = NULL, color = NULL, label = NULL
     dlopts <- list(enabled = FALSE)
   }
   
-  hc %>% hc_add_series(data = ds,
-                       type = type,
-                       showInLegend = showInLegend,
-                       dataLabels = dlopts, ...)
-  
+  do.call("hc_add_series", c(list(hc,
+                                  data = ds, 
+                                  type = type, 
+                                  showInLegend = showInLegend, 
+                                  dataLabels = dlopts),
+                             args))
 }
 
 #' @rdname hc_add_series_scatter
@@ -187,10 +264,10 @@ hc_add_serie_labels_values <- hc_add_series_labels_values
 #' library("treemap")
 #' library("viridis")
 #' 
-#' data(GNI2010)
-#' head(GNI2010)
+#' data(GNI2014)
+#' head(GNI2014)
 #' 
-#' tm <- treemap(GNI2010, index = c("continent", "iso3"),
+#' tm <- treemap(GNI2014, index = c("continent", "iso3"),
 #'               vSize = "population", vColor = "GNI",
 #'               type = "comp", palette = rev(viridis(6)),
 #'               draw = FALSE)
@@ -354,3 +431,73 @@ hc_add_series_map <- function(hc, map, df, value, joinBy, ...) {
 #' @rdname hc_add_series_map
 #' @export
 hc_add_serie_map <- hc_add_series_map
+
+#' Shorcut for create boxplot 
+#' 
+#' @param hc A \code{highchart} \code{htmlwidget} object. 
+#' @param x A numerci vector
+#' @param by A string vector same length of \code{x}
+#' @param outliers A boolean value to show or not the outliers
+#' @param ... Aditional shared arguments for the data series
+#'   (\url{http://api.highcharts.com/highcharts#series}).
+#' @examples
+#' 
+#' highchart() %>% 
+#'   hc_add_series_boxplot(x = iris$Sepal.Length, by = iris$Species, name = "length") 
+#'   
+#' @importFrom grDevices boxplot.stats
+#' @importFrom purrr map2_df
+#' @export
+hc_add_series_boxplot <- function(hc, x, by = NULL, outliers = TRUE, ...) {
+  
+  if (is.null(by)) {
+    by <- "value"
+  } else {
+    stopifnot(length(x) == length(by))
+  }
+  
+  df <- data_frame(value = x, by = by) %>% 
+    group_by(by) %>% 
+    do(data = boxplot.stats(.$value))
+  
+  bxps <- map(df$data, "stats")
+  
+  hc <- hc %>%
+    hc_xAxis(categories = df$by) %>% 
+    hc_add_series(data = bxps, type = "boxplot", ...)
+  
+  if (outliers) {
+    outs <- map2_df(seq(nrow(df)), df$data, function(x, y){
+      if (length(y$out) > 0)
+        d <- data_frame(x = x - 1, y = y$out)
+      else
+        d <- data_frame()
+      d
+    })
+    
+    if (nrow(outs) > 0) {
+      hc <- hc %>%
+        hc_add_series_df(
+          data = outs,
+          name = str_trim(paste(list(...)$name, "outliers")),
+          type = "scatter", #linkedTo = ":previous",
+          marker = list(...),
+          tooltip = list(
+            headerFormat = "<span>{point.key}</span><br/>",
+            # pointFormat = "Observation: {point.y}"
+            pointFormat = "<span style='color:{point.color}'></span> Outlier: <b>{point.y}</b><br/>"
+          ),
+          ...
+        )
+    }
+    
+    
+  }
+  
+  hc
+  
+}
+
+#' @export
+#' @rdname hc_add_series_boxplot
+hc_add_series_whisker <- hc_add_series_boxplot
